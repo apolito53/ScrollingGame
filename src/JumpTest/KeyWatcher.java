@@ -4,7 +4,7 @@ import java.awt.event.*;
 
 public class KeyWatcher implements KeyListener
 {
-    private Jumper jumper;
+    private final Jumper jumper;
     
     public KeyWatcher(Jumper j)
     {
