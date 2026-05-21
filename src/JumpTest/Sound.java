@@ -1,32 +1,41 @@
 package JumpTest;
 
-import java.applet.Applet;
-import java.applet.AudioClip;
+import java.net.URL;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
 
-public class Sound 
+public class Sound
 {
-    private AudioClip clip;
-    
+    private Clip clip;
+
     public Sound(String filename)
     {
-        try
-        {
-            clip = Applet.newAudioClip(Sound.class.getResource(filename));
-        } catch (Exception ex){}
+        URL resource = Sound.class.getResource(filename);
+        if (resource == null) {
+            System.err.println("Missing sound resource: " + filename);
+            return;
+        }
+
+        try (AudioInputStream audioStream = AudioSystem.getAudioInputStream(resource)) {
+            clip = AudioSystem.getClip();
+            clip.open(audioStream);
+        } catch (Exception ex) {
+            System.err.println("Unable to load sound resource " + filename + ": " + ex.getMessage());
+        }
     }
-    
+
     public void play()
     {
-        try
-        {
-            new Thread()
-            {
-                @Override
-                public void run()
-                {
-                    clip.play();
-                }
-            }.start();
-        } catch(Exception ex){}
+        if (clip == null) {
+            return;
+        }
+
+        if (clip.isRunning()) {
+            clip.stop();
+        }
+
+        clip.setFramePosition(0);
+        clip.start();
     }
 }

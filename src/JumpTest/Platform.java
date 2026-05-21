@@ -6,22 +6,34 @@ import javax.swing.*;
 public class Platform extends JPanel
 {
     final private String name;
+    private final int worldX;
+    private final int worldY;
     private Rectangle rekt;
     
     //Platform generation via mouse input
     public Platform(Point p) {
         int x = p.x;
         int y = p.y;
+        worldX = x;
+        worldY = y;
         setBackground(Color.blue);
         setBounds(x, y, 75, 15);
+        rekt = new Rectangle();
         name = "UserGenerated";
     }
     
     //Hardcoded platform creation
     public Platform(int x, int y, String n) {
+        worldX = x;
+        worldY = y;
         setBackground(Color.black);
         setBounds(x, y, 75, 15);
+        rekt = new Rectangle();
         name = n;
+    }
+
+    public void updateScreenLocation(int worldOffsetX) {
+        setLocation(worldX + worldOffsetX, worldY);
     }
     
     //Gets the location of the platform relative to the window
@@ -65,10 +77,9 @@ public class Platform extends JPanel
     
     //Sets the rectangle used for colision
     public Rectangle getRelativeRectangle() {
-        rekt = new Rectangle();
-        int x = getRelativeLocation().x, 
-                y = getRelativeLocation().y;
-        rekt.setBounds(x, y, 75, 15);
+        int x = getX() + getParent().getX();
+        int y = getY() + getParent().getY();
+        rekt.setBounds(x, y, getWidth(), getHeight());
         return rekt;
     }
 }    

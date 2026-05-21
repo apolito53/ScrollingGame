@@ -16,7 +16,7 @@ public class Jumper extends JPanel {
     public int colorCounter = 0, parentWidth, parentHeight,
             moveLeft = 0, moveRight = 0, moveSpeed = 0, count = 0, moveUp = 0, moveDown = 0,
             minX, minY, maxX, maxY;
-    protected Timer engine, jumpTimer;
+    protected Timer jumpTimer;
     public boolean left = false, right = false, up = false, 
             jumpingLeft = false, jumpingRight = false,
             falling = false, rising = false;
@@ -48,18 +48,20 @@ public class Jumper extends JPanel {
         
         intersectedPlatform = null; //intersectedPlatform initialized
         
-        eh = new EngineHandler(); 
-        engine = new Timer(1000 / 60, eh);
-        engine.start();
-        
+        eh = new EngineHandler();
+
         jumpSound = new Sound("Randomize.wav");
-        
+
         movementMode = true; //Defeault movement mode - controlled by keyboard
+    }
+
+    public void tick() {
+        eh.actionPerformed(null);
     }
     
     //Checks to see if the jumper object is intersecting with a platform
     public boolean platformIntersected(Platform p) {
-            if(getBounds().intersects(p.getRelativeRectangle())) {
+            if(p.getRelativeRectangle().intersects(getX(), getY(), getWidth(), getHeight())) {
                 intersectedPlatform = p;
                 return true;
             } else {
@@ -188,47 +190,35 @@ public class Jumper extends JPanel {
     //Handler of the "engine" for the Jumper object
     private class EngineHandler implements ActionListener {
         @Override
-        @SuppressWarnings({"BroadCatchBlock", "TooBroadCatch"})
         public void actionPerformed(ActionEvent e) {
-            try {
-                Thread.sleep(1);
-                //Sets the array of platforms
-                if(platforms == null) {
-                    platforms = frame.getPlatforms();
-                }
-                
-                //Calls the platform intersecting function, sets the intersecting
-                //variable, and the intersectedPlatform variable
+            //Sets the array of platforms
+            if(platforms == null && frame != null) {
+                platforms = frame.getPlatforms();
+            }
+
+            //Calls the platform intersecting function, sets the intersecting
+            //variable, and the intersectedPlatform variable
+            if(platforms != null) {
+                intersecting = false;
+                intersectedPlatform = null;
                 for(int i = 0; i < platforms.size(); i++) {
                     if(platformIntersected(platforms.get(i)) == true) {
-                        System.out.println(platforms.get(i).getName());
                         intersecting = true;
                         intersectedPlatform = platforms.get(i);
                         break;
-                    } else {
-                        intersecting = false;
-                        if(intersectedPlatform != null) {
-                            intersectedPlatform = null;
-                        }
                     }
                 }
-                
-                //Updates the trackerPanel
-                try {
-                    trackerPanel.setLabels(moveLeft, moveRight, count, left, 
-                            right, minX, minY, intersectedPlatform.getName(), 
-                            resting);
-                } catch (Exception ex) {
-                    trackerPanel.setLabels(moveLeft, moveRight, count, left, 
-                            right, minX, minY, null, resting);
-                }
-
-            } catch (Exception ex) {
-                System.out.println(ex.toString());
             }
-            
-            setBackground(c);
-            
+
+            //Updates the trackerPanel
+            if(trackerPanel != null && count % 15 == 0) {
+                String platformName = intersectedPlatform == null
+                        ? null
+                        : intersectedPlatform.getName();
+                trackerPanel.setLabels(moveLeft, moveRight, count, left,
+                        right, minX, minY, platformName, resting);
+            }
+
             /*
              * This block does multiple checks to determine the movement of the
              * Jumper object. All movement is controlled via integer variables
@@ -337,51 +327,43 @@ public class Jumper extends JPanel {
                 rise();
                 jumpSound.play();
             }
-            
+
+            int nextX = getX();
+            int nextY = getY();
+
             //Left movement control
             if(left || jumpingLeft || moveLeft > 0) {
-                setLocation(getX() - moveLeft, getY());
-                try{
-                    if(getX() <= 125 && !frame.isAtEnd()) {
-                        setLocation(125, getY());
-                    } else if(getX() <= 0 && frame.isAtEnd()) {
-                        setLocation(0, getY());
-                    }
-                } catch(Exception ex) {
-                    if(getX() <= 0) {
-                        setLocation(0, getY());
-                    }
+                nextX -= moveLeft;
+                if(frame != null && nextX <= 125 && !frame.isAtEnd()) {
+                    nextX = 125;
+                } else if(nextX <= 0) {
+                    nextX = 0;
                 }
             }
-            
+
             //Right movement control
             if(right || jumpingRight || moveRight > 0) {
-                setLocation(getX() + moveRight, getY());
-                try{
-                    if(getX() > parentWidth - 200 && !frame.isAtEnd()) {
-                        setLocation(parentWidth - 200, getY());
-                    } else if(getX() >= (parentWidth - getWidth()) && frame.isAtEnd()) {
-                        setLocation(parentWidth - getWidth(), getY());
-                    }
-                } catch(Exception ex) {
-                    if(getX() > parentWidth - getWidth()) {
-                        setLocation(parentWidth - getWidth(), getY());
-                    }
+                nextX += moveRight;
+                if(frame != null && nextX > parentWidth - 200 && !frame.isAtEnd()) {
+                    nextX = parentWidth - 200;
+                } else if(nextX >= parentWidth - getWidth()) {
+                    nextX = parentWidth - getWidth();
                 }
             }
-            
+
             //Falling control
             if(moveDown > 0) {
-                setLocation(getX(), getY() + moveDown);
-                if(getY() > 470) {
-                    setLocation(getX(), 470);
+                nextY += moveDown;
+                if(nextY > 470) {
+                    nextY = 470;
                     falling = false;
                     moveDown = 0;
                     jumpingLeft = false;
                     jumpingRight = false;
                 }
-                if(intersecting && maxY - moveDown <= intersectedPlatform.getMinY()) {
-                    setLocation(getX(), intersectedPlatform.getMinY() - 49);
+                if(intersecting && intersectedPlatform != null
+                        && maxY - moveDown <= intersectedPlatform.getMinY()) {
+                    nextY = intersectedPlatform.getMinY() - 49;
                     falling = false;
                     moveDown = 0;
                     resting = true;
@@ -402,13 +384,13 @@ public class Jumper extends JPanel {
                 if(count % 2 == 0) {
                     moveUp--;
                 }
-                setLocation(getX(), getY() - moveUp);
+                nextY -= moveUp;
             } 
             if(moveUp == 0 && rising) {
                 rising = false;
                 fall();
             }
-            
+
             //Jump movement control. If spacebar is pressed while left or right
             //variable is true, the Jumper will continue to move in that direction.
             if(rising && left) {
@@ -416,6 +398,10 @@ public class Jumper extends JPanel {
             }
             if(rising && right) {
                 jumpingRight = true;
+            }
+
+            if(nextX != getX() || nextY != getY()) {
+                setLocation(nextX, nextY);
             }
 
             //Causes jumper to flash colors while moving and/or jumping
@@ -433,7 +419,11 @@ public class Jumper extends JPanel {
             } else {
                 c = Color.red;
             }
-            
+
+            if(!getBackground().equals(c)) {
+                setBackground(c);
+            }
+
             //Resets count to 0 when it hits 100
             if(count > 100) {
                 count = 0;

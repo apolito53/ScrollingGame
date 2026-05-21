@@ -3,14 +3,11 @@ package ScrollingPanel;
 import JumpTest.*;
 import java.awt.*;
 import java.awt.event.*;
-import java.awt.image.*;
-import java.io.IOException;
 import java.util.ArrayList;
-import javax.imageio.ImageIO;
 import javax.swing.*;
 
 public class ScrollFrame extends JFrame {
-    protected Container cp;
+    protected JPanel cp;
         //The container that will be moving
     protected Timer engine;
         //The "engine"
@@ -20,6 +17,8 @@ public class ScrollFrame extends JFrame {
         //Boolean variables for movement control
     protected int rightmostPanelMinX;
         //keeps track of the x location of most recently added panel
+    protected int worldOffsetX;
+        //Current horizontal position of the world relative to the viewport
     protected Jumper jumper;
         //Points to the jumper object
     protected final int floorYPos = 470;
@@ -63,7 +62,6 @@ public class ScrollFrame extends JFrame {
         setLayout(null);
         setVisible(true);
         setResizable(false);
-        setIgnoreRepaint(true);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
     }
     
@@ -73,47 +71,35 @@ public class ScrollFrame extends JFrame {
     private void initComponents() {
         //STREAMLINE: PASS IN AN ARRAY OF OBJECTS AND USE A FOR LOOP TO ADD THEM//
         
-        cp = new Container();
+        cp = new JPanel();
         add(cp);
         cp.setLayout(null);
-        cp.setBackground(Color.white);
+        cp.setBackground(Color.gray);
+        cp.setBounds(0, 0, getWidth(), getHeight());
         
         platformArray = new ArrayList<>();
+        worldOffsetX = 0;
         
         Platform p1 = new Platform(250, 400, "P1");
-        cp.add(p1);
-        cp.setComponentZOrder(p1, 0);
-        platformArray.add(p1);
+        addPlatformToWorld(p1);
         
         Platform p2 = new Platform(400, 350, "P2");
-        cp.add(p2);
-        cp.setComponentZOrder(p2, 0);
-        platformArray.add(p2);
+        addPlatformToWorld(p2);
         
         Platform p3 = new Platform(500, 300, "P3");
-        cp.add(p3);
-        cp.setComponentZOrder(p3, 0);
-        platformArray.add(p3);
+        addPlatformToWorld(p3);
         
         Platform p4 = new Platform(650, 250, "P4");
-        cp.add(p4);
-        cp.setComponentZOrder(p4, 0);
-        platformArray.add(p4);
+        addPlatformToWorld(p4);
         
         Platform p5 = new Platform(800, 300, "P5");
-        cp.add(p5);
-        cp.setComponentZOrder(p5, 0);
-        platformArray.add(p5);
+        addPlatformToWorld(p5);
         
         Platform p6 = new Platform(940, 380, "P6");
-        cp.add(p6);
-        cp.setComponentZOrder(p6, 0);
-        platformArray.add(p6);
+        addPlatformToWorld(p6);
         
         Platform p7 = new Platform(1030, 475, "P7");
-        cp.add(p7);
-        cp.setComponentZOrder(p7, 0);
-        platformArray.add(p7);
+        addPlatformToWorld(p7);
         
         smw = new ScrollingMouseWatcher(cp, this);
         cp.addMouseListener(smw);
@@ -126,7 +112,7 @@ public class ScrollFrame extends JFrame {
         
         eh = new EngineHandler();
         engine = new Timer(1000 / 60, eh);
-        engine.start();
+        engine.setCoalesce(true);
         
         /* This passes the instance of this frame to the Jumper object so it
          * can be used by the object */
@@ -141,28 +127,38 @@ public class ScrollFrame extends JFrame {
     public boolean isMoving() {
         return moving;
     }
+
+    public void startEngine() {
+        if(!engine.isRunning()) {
+            engine.start();
+        }
+    }
+
+    private void addPlatformToWorld(Platform platform) {
+        platform.updateScreenLocation(worldOffsetX);
+        cp.add(platform);
+        cp.setComponentZOrder(platform, 0);
+        platformArray.add(platform);
+    }
+
+    private int getMinWorldOffset() {
+        return Math.min(0, getWidth() - rightmostPanelMinX);
+    }
+
+    private void updatePlatformLocations() {
+        for(int i = 0; i < platformArray.size(); i++) {
+            platformArray.get(i).updateScreenLocation(worldOffsetX);
+        }
+    }
     
     /*
      * method that adds new Panels to the moving container
      */
     protected void addPanel() {
-        Panel panel;
-        panel = new Panel(Color.gray);
-        BufferedImage img;
         try {
-            img = ImageIO.read(this.getClass().getResource("mario.png"));
-            JLabel imgLbl = new JLabel(new ImageIcon(img));
-            imgLbl.setSize(600, 600);
-            //panel.add(imgLbl);
-        } catch (IOException ex) {
-            System.out.println("Error adding image to panel or adding panel to frame");
-        }
-        
-        try {
-            cp.add(panel);
-            panel.setBounds(rightmostPanelMinX, 0, 600, 600);
-            rightmostPanelMinX += panel.getWidth();
-            cp.setSize(rightmostPanelMinX, 600);
+            int panelX = rightmostPanelMinX;
+            rightmostPanelMinX += 600;
+            cp.repaint(panelX, 0, 600, 600);
         } catch (Exception ex) {
             System.out.println("Error adding image to panel or adding panel to frame");
         }
@@ -173,11 +169,10 @@ public class ScrollFrame extends JFrame {
      */
     protected void addPlatform(Point p) {
         try {
-            Platform platform = new Platform(p);
-            cp.add(platform);
-            cp.setComponentZOrder(platform, 0);
-            platformArray.add(platform);
-            
+            Platform platform = new Platform(new Point(p.x - worldOffsetX, p.y));
+            addPlatformToWorld(platform);
+            cp.repaint(platform.getBounds());
+
         } catch(Exception ex) {
             System.out.println("Something went wrong, no platform created");
         }
@@ -186,8 +181,10 @@ public class ScrollFrame extends JFrame {
     protected void removeAllPlatforms() {
         try {
             for(int i = platformArray.size() - 1; i >= 0; i--) {
-                platformArray.get(i).setVisible(false);
-                platformArray.remove(i);
+                Platform platform = platformArray.remove(i);
+                Rectangle bounds = platform.getBounds();
+                cp.remove(platform);
+                cp.repaint(bounds);
             }
             
             //If the jumper object is on a platform when they are deleted, this
@@ -215,7 +212,7 @@ public class ScrollFrame extends JFrame {
     /*
      * Returns the platformArray ArrayList
      */
-    public ArrayList getPlatforms() {
+    public ArrayList<Platform> getPlatforms() {
         return platformArray;
     }
     
@@ -225,9 +222,15 @@ public class ScrollFrame extends JFrame {
     private class EngineHandler implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
+            int startingX = worldOffsetX;
+            int nextX = startingX;
+
             // The variable atEnd is true if the moving panel is at either
             // end of the specified boundaries and false otherwise
-            atEnd = cp.getX() == 0 || cp.getX() == -cp.getWidth() + getWidth();
+            atEnd = worldOffsetX == 0 || worldOffsetX == getMinWorldOffset();
+            moving = false;
+
+            jumper.tick();
             
             //Gets the left movement variable from the jumper object
             movingLeft = jumper.getMoveLeft();
@@ -241,32 +244,33 @@ public class ScrollFrame extends JFrame {
             // Moves the moving container right when the Jumper object is moving
             // left and at the required boundary
             if((movingLeft - movingRight > 0)
-                    && jumper.getLocation().x <= 150) {
-                cp.setLocation(cp.getX() + netMovement, cp.getY());
+                    && jumper.getX() <= 150) {
+                nextX += netMovement;
                 moving = true;
             }
             
             // Moves the moving container to the left when the Jumper object is
             // moving right and at the required boundary
             if((movingRight - movingLeft > 0)
-                    && jumper.getLocation().x >= getWidth() - 200) {
-                cp.setLocation(cp.getX() - netMovement, cp.getY());
+                    && jumper.getX() >= getWidth() - 200) {
+                nextX -= netMovement;
                 moving = true;
             }
             
             // Prevents the moving container (cp) from moving off of the parent
             // container
-            if(cp.getX() > 0) {
-                cp.setLocation(0, cp.getY());
-            } else if(cp.getX() < -cp.getWidth() + getWidth()) {
-                cp.setLocation(-cp.getWidth() + getWidth(), cp.getY());
+            if(nextX > 0) {
+                nextX = 0;
+            } else if(nextX < getMinWorldOffset()) {
+                nextX = getMinWorldOffset();
+            }
+
+            if(nextX != startingX) {
+                worldOffsetX = nextX;
+                updatePlatformLocations();
             }
             
-            for(int i = 0; i < platformArray.size(); i++) { 
-                //System.out.println(platformArray.get(i).getRelativeLocation());
-            }
-            
-            cp.repaint();
+            atEnd = worldOffsetX == 0 || worldOffsetX == getMinWorldOffset();
         }
     }
 }
