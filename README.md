@@ -11,6 +11,12 @@ The existing NetBeans Ant project files are still present, but the Maven file is
 ## Run from the command line
 
 ```bash
+./run.sh
+```
+
+or run Maven directly:
+
+```bash
 mvn compile exec:java
 ```
 

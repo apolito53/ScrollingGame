@@ -18,24 +18,30 @@ public class Sound
         }
 
         try (AudioInputStream audioStream = AudioSystem.getAudioInputStream(resource)) {
-            clip = AudioSystem.getClip();
-            clip.open(audioStream);
+            Clip loadedClip = AudioSystem.getClip();
+            loadedClip.open(audioStream);
+            clip = loadedClip;
         } catch (Exception ex) {
+            clip = null;
             System.err.println("Unable to load sound resource " + filename + ": " + ex.getMessage());
         }
     }
 
     public void play()
     {
-        if (clip == null) {
+        if (clip == null || !clip.isOpen()) {
             return;
         }
 
-        if (clip.isRunning()) {
-            clip.stop();
-        }
+        try {
+            if (clip.isRunning()) {
+                clip.stop();
+            }
 
-        clip.setFramePosition(0);
-        clip.start();
+            clip.setFramePosition(0);
+            clip.start();
+        } catch (IllegalStateException ex) {
+            clip = null;
+        }
     }
 }
